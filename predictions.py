@@ -18,17 +18,14 @@ from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
 
-def slice_with_overlay(img_name, stride_x, stride_y, out_x, out_y, path_to_save='./', path_to_read='./'):
+def slice_with_overlay(img_name, stride_x, stride_y, out, path_to_save='./', path_to_read='./'):
     """
-        stride_x ile stride_y arasında ki fark kadar enine bindirme oluyor 
-        stride_x çıktı görüntü ile aynı olmalı
-
-        out_x ile out_y çıktı görüntünün boyutlarını belirler
+        stride_x kadar enine stride_y kadar boyuna bindirme yapar. 
     """
 
     os.chdir(path_to_read)
     print(os.getcwd())
-    print(f'>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>{img_name} görüntüsü parçalanıyor....')
+    print(f'>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>{img_name} görüntüsü parçalanıyor<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<')
 
     k = img_name
     is_mask = True
@@ -47,8 +44,7 @@ def slice_with_overlay(img_name, stride_x, stride_y, out_x, out_y, path_to_save=
         # img = img.pixel_array
 
         # img = pd.dcmread(k).pixel_array #dicom dosyaları için
-    row = img.shape[0]
-    col = img.shape[1]
+  
     os.chdir(path_to_save)
     if os.path.exists(k[:-4]):
         os.chdir(k[:-4])
@@ -56,82 +52,76 @@ def slice_with_overlay(img_name, stride_x, stride_y, out_x, out_y, path_to_save=
         os.mkdir(k[:-4])
         os.chdir(k[:-4])
 
+
     row = img.shape[0]
     col = img.shape[1]
 
-    for i in range(0, row + 1, stride_x):
-        for j in range(0, col + 1, stride_y):
-            if i+stride_x > row:
+    outer = (row // out) * out
+    inner = (col // out) * out
 
-                if j+stride_x > col:
+    for r in range(0, outer, stride_y):
+        for c in range(0, inner + 1, stride_x):
+            #satır boyutundan büyük çıkarsa satır boyutunu sınır alarak geriye out kadar geriden alır
+            if r + out > row:
+
+                #sütun boyutundan büyük çıkarsa sütun boyutunu sınır alarak geriye out kadar geriden alır
+                if c + out > col:
+
+                    # print(row - out, row, col - out, col)
 
                     if is_mask:
                         # #etiketleri kayıtederken
-                        cv2.imwrite(str(row-out_x) + '_' + str(row) + '_' + str(col-out_y) +
-                                    '_' + str(col) + '_' + k, img[row-out_x:row, col-out_y:col, :])
+                        cv2.imwrite(str(row-out) + '_' + str(row) + '_' + str(col-out) +'_' + str(col) + '_' + k, img[row-out:row, col - out:col, :])
 
                     else:
                         # dicom dosyalarını kayıt ederken
-                        temp_dcm = img[row-out_x:row, col-out_y:col]
+                        temp_dcm = img[row-out:row, col - out:col]
                         temp_dcm = sitk.GetImageFromArray(temp_dcm)
-                        sitk.WriteImage(temp_dcm, str(
-                            row-out_x) + '_' + str(row) + '_' + str(col-out_y) + '_' + str(col) + '_' + k)
+                        sitk.WriteImage(temp_dcm, str(row-out) + '_' + str(row) + '_' + str(col-out) + '_' + str(col) + '_' + k)
+
+                    break
+                    
+                else:
+                    #print(row - out, row, c, c + out)
+
+                    if is_mask:
+                        # #etiketleri kayıtederken
+                        cv2.imwrite(str(row-out) + '_' + str(row) + '_' + str(c) + '_' + str(c + out) + '_' + k, img[row - out : row, c : c + out, :])
+
+                    else:
+                        # dicom dosyalarını kayıt ederken
+                        temp_dcm = img[row - out:row, c : c + out]
+                        temp_dcm = sitk.GetImageFromArray(temp_dcm)
+                        sitk.WriteImage(temp_dcm, str(row-out) + '_' + str(row) + '_' + str(col-out) + '_' + str(col) + '_' + k)
+
+            elif c + out > col:
+
+                #print(r, r + out, col - out, col)
+                if is_mask:
+                        # #etiketleri kayıtederken
+                        cv2.imwrite(str(r) + '_' + str(r + out) + '_' + str(col - out) + '_' + str(col) + '_' + k, img[r : r + out, col - out : col, :])
 
                 else:
+                    # dicom dosyalarını kayıt ederken
+                    temp_dcm = img[r : r + out, col - out : col]
+                    temp_dcm = sitk.GetImageFromArray(temp_dcm)
+                    sitk.WriteImage(temp_dcm, str(r) + '_' + str(r + out) + '_' + str(col-out) + '_' + str(col) + '_' + k)
 
-                    if is_mask:
-
-                        cv2.imwrite(str(row-out_x) + '_' + str(row) + '_' + str(j) +
-                                    '_' + str(j+out_y) + '_' + k, img[row-out_x:row, j:j+out_y, :])
-
-                    else:
-                        temp_dcm = img[row-out_x:row, j:j+out_y]
-                        temp_dcm = sitk.GetImageFromArray(temp_dcm)
-                        sitk.WriteImage(temp_dcm, str(
-                            row-out_x) + '_' + str(row) + '_' + str(j) + '_' + str(j+out_y) + '_' + k)
-
-            elif j+stride_x > col:
-
-                if i+stride_x > row:
-
-                    if is_mask:
-
-                        cv2.imwrite(str(row-out_x) + '_' + str(row) + '_' + str(col-out_y) +
-                                    '_' + str(col) + '_' + k, img[row-out_x:row, col-out_y:col, :])
-
-                    else:
-
-                        temp_dcm = img[row-out_x:row, col-out_y:col]
-                        temp_dcm = sitk.GetImageFromArray(temp_dcm)
-                        sitk.WriteImage(temp_dcm, str(
-                            row-out_x) + '_' + str(row) + '_' + str(col-out_y) + '_' + str(col) + '_' + k)
-
-                else:
-
-                    if is_mask:
-
-                        cv2.imwrite(str(i) + '_' + str(i+out_x) + '_' + str(col-out_y) +
-                                    '_' + str(col) + '_' + k, img[i:i+out_x, col-out_y:col, :])
-
-                    else:
-                        temp_dcm = img[i:i+out_x, col-out_y:col]
-                        temp_dcm = sitk.GetImageFromArray(temp_dcm)
-                        sitk.WriteImage(temp_dcm, str(
-                            i) + '_' + str(i+out_x) + '_' + str(col-out_y) + '_' + str(col) + '_' + k)
-
+                break
             else:
+                #print(r , r + out, c, c + out)
 
                 if is_mask:
-
-                    cv2.imwrite(str(i) + '_' + str(i+out_x) + '_' + str(j) +
-                                '_' + str(j+out_y) + '_' + k, img[i:i+out_x, j:j+out_y, :])
+                        # #etiketleri kayıtederken
+                        cv2.imwrite(str(r) + '_' + str(r + out) + '_' + str(c) + '_' + str(c + out) + '_' + k, img[r : r + out, c : c + out, :])
 
                 else:
-
-                    temp_dcm = img[i:i+out_x, j:j+out_y]
+                    # dicom dosyalarını kayıt ederken
+                    temp_dcm = img[r : r + out, c : c + out]
                     temp_dcm = sitk.GetImageFromArray(temp_dcm)
-                    sitk.WriteImage(temp_dcm, str(
-                        i) + '_' + str(i+out_x) + '_' + str(j) + '_' + str(j+out_y) + '_' + k)
+                    sitk.WriteImage(temp_dcm, str(r) + '_' + str(r + out) + '_' + str(c) + '_' + str(c + out) + '_' + k)
+
+               
     os.chdir(path_to_read)
 
 
